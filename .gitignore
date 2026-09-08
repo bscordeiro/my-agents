@@ -1,0 +1,5 @@
+# Ignore nested repository metadata from installed skills.
+skills/proatlas/.git/
+
+# Ignore Windows download metadata files.
+**/*Zone.Identifier*
