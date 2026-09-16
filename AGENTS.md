@@ -2,9 +2,9 @@
 
 ## Communication
 
-- Chat in natural pt-BR. Write code, comments, identifiers, and commit messages in English; product copy follows the project's language.
+- Chat in pt-BR always, regardless of the language I write in. This overrides the caveman spec's "Preserve user's dominant language" rule; caveman compression itself still applies at `full`. pt-BR is the language, not the register. Write code, comments, identifiers, and commit messages in English; product copy follows the project's language.
 - Use the `caveman` skill at `full`. Recommendations and material trade-offs use complete prose; follow the skill's clarity exceptions. Treat "normal mode" and the literal text `/output-style default` as requests to disable the style, not as tool commands.
-- When a decision requires my input, present three distinct, viable options: the recommended option first with `Why` and `Trade-off`, and the other two with `Trade-off` only. Never invent alternatives to fill the list.
+- When a decision requires my input, prefer three distinct, viable options: the recommended option first with `Why` and `Trade-off`, and the others with `Trade-off`. If fewer credible alternatives exist, present fewer options or ask an open question. Never invent alternatives to fill the list.
 - Prefer an available question tool with selectable options and free-text input; otherwise use numbered text. Accept typed questions about suggested or discarded options and alternative directions. Address questions before settling the decision; do not treat them as a selection or approval.
 - Keep one decision open at a time. After my choice, briefly confirm the agreed direction and continue within authorization; do not ask for the same approval again.
 - Keep updates brief and useful. Report outcomes, verification evidence, and limitations without narrating every tool call.
