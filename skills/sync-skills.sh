@@ -5,8 +5,8 @@ usage() {
 	cat <<'EOF'
 Usage: sync-skills.sh [--dry-run] [--help]
 
-Synchronize curated skills at pinned repository revisions.
-Repository pins live in REPOSITORIES and must be updated manually after review.
+Synchronize curated skills at upstream default-branch tip.
+Repositories track latest to receive fixes promptly; review the diff after sync.
 
 Options:
   --dry-run  Show exact file changes without changing installed skills.
@@ -34,14 +34,14 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 SKILLS_DIR="$SCRIPT_DIR"
 LOCK_FILE="$SCRIPT_DIR/../.skill-lock.json"
 
-# Format: repository_key|repository_url|pinned_commit
-# Update a pin only after reviewing the upstream diff from the previous commit.
+# Format: repository_key|repository_url
+# Tracks the remote default branch tip to receive upstream fixes promptly.
 REPOSITORIES=(
-	"juliusbrussee|https://github.com/JuliusBrussee/skills.git|e8048f01abe2b8e2563df2078d0d705c895eb09a"
-	"mattpocock|https://github.com/mattpocock/skills.git|ed37663cc5fbef691ddfecd080dff42f7e7e350d"
-	"multica-karpathy|https://github.com/multica-ai/andrej-karpathy-skills.git|2c606141936f1eeef17fa3043a72095b4765b9c2"
-	"obra-superpowers|https://github.com/obra/superpowers.git|d884ae04edebef577e82ff7c4e143debd0bbec99"
-	"addyosmani|https://github.com/addyosmani/agent-skills.git|fefc4075ddfd8363d3b2aa8b26e6440f1ce204c0"
+	"juliusbrussee|https://github.com/JuliusBrussee/skills.git"
+	"mattpocock|https://github.com/mattpocock/skills.git"
+	"multica-karpathy|https://github.com/multica-ai/andrej-karpathy-skills.git"
+	"obra-superpowers|https://github.com/obra/superpowers.git"
+	"addyosmani|https://github.com/addyosmani/agent-skills.git"
 )
 
 # Format: local_name|repository_key|path_inside_repository
@@ -50,13 +50,13 @@ REPOSITORIES=(
 # stay outside SOURCES and the external-install lock; do not overwrite local policy.
 SOURCES=(
 	"caveman|juliusbrussee|skills/caveman"
-	"writing-great-skills|mattpocock|skills/productivity/writing-great-skills"
 	"tdd|mattpocock|skills/engineering/tdd"
 	"grilling|mattpocock|skills/productivity/grilling"
 	"codebase-design|mattpocock|skills/engineering/codebase-design"
 	"domain-modeling|mattpocock|skills/engineering/domain-modeling"
 	"improve-codebase-architecture|mattpocock|skills/engineering/improve-codebase-architecture"
 	"karpathy-guidelines|multica-karpathy|skills/karpathy-guidelines"
+	"brainstorming|obra-superpowers|skills/brainstorming"
 	"verification-before-completion|obra-superpowers|skills/verification-before-completion"
 	"systematic-debugging|obra-superpowers|skills/systematic-debugging"
 	"test-driven-development|obra-superpowers|skills/test-driven-development"
@@ -95,7 +95,7 @@ done
 }
 
 declare -A REPOSITORY_URLS=()
-declare -A REPOSITORY_REVISIONS=()
+declare -A REPOSITORY_RESOLVED=()
 declare -A REPOSITORY_CHECKOUTS=()
 declare -A FAILED_REPOSITORIES=()
 declare -A LOCK_MANAGED_SKILLS=()
@@ -134,9 +134,9 @@ trap 'exit 143' TERM
 trap 'exit 129' HUP
 
 load_repositories() {
-	local entry key url revision extra
+	local entry key url extra
 	for entry in "${REPOSITORIES[@]}"; do
-		IFS='|' read -r key url revision extra <<<"$entry"
+		IFS='|' read -r key url extra <<<"$entry"
 		if [[ -n "${extra:-}" || ! "$key" =~ ^[a-z0-9-]+$ ]]; then
 			record_error "Invalid repository entry: $entry" "$key (invalid configuration)"
 			continue
@@ -145,17 +145,12 @@ load_repositories() {
 			record_error "Repository URL is not allowlisted: $url" "$key (invalid URL)"
 			continue
 		fi
-		if [[ ! "$revision" =~ ^[0-9a-f]{40}$ ]]; then
-			record_error "Repository revision must be a 40-character commit: $key" "$key (invalid revision)"
-			continue
-		fi
 		if [[ -n "${REPOSITORY_URLS[$key]:-}" ]]; then
 			record_error "Duplicate repository key: $key" "$key (duplicate repository)"
 			continue
 		fi
 		REPOSITORY_KEYS+=("$key")
 		REPOSITORY_URLS["$key"]=$url
-		REPOSITORY_REVISIONS["$key"]=$revision
 	done
 }
 
@@ -204,34 +199,25 @@ load_sources() {
 }
 
 clone_repositories() {
-	local key url revision checkout actual_revision
+	local key url checkout actual_revision
 	mkdir -p "$RUN_TEMP_DIR/repositories"
 	for key in "${REPOSITORY_KEYS[@]}"; do
 		[[ -n "${ACTIVE_REPOSITORIES[$key]:-}" ]] || continue
 		url=${REPOSITORY_URLS[$key]}
-		revision=${REPOSITORY_REVISIONS[$key]}
 		checkout="$RUN_TEMP_DIR/repositories/$key"
-		info "Cloning $key at $revision"
-		if ! git clone --quiet --filter=blob:none --no-checkout -- "$url" "$checkout"; then
+		info "Cloning $key (default branch tip)"
+		if ! git clone --quiet --filter=blob:none -- "$url" "$checkout"; then
 			record_error "Failed to clone $url" "$key (clone failed)"
 			FAILED_REPOSITORIES["$key"]=1
 			continue
 		fi
-		if ! git -C "$checkout" checkout --quiet --detach "$revision"; then
-			record_error "Failed to check out $revision for $key" "$key (checkout failed)"
-			FAILED_REPOSITORIES["$key"]=1
-			continue
-		fi
 		if ! actual_revision=$(git -C "$checkout" rev-parse HEAD); then
-			record_error "Failed to verify revision for $key" "$key (revision check failed)"
+			record_error "Failed to resolve revision for $key" "$key (revision check failed)"
 			FAILED_REPOSITORIES["$key"]=1
 			continue
 		fi
-		if [[ "$actual_revision" != "$revision" ]]; then
-			record_error "Revision mismatch for $key: expected $revision, got $actual_revision" "$key (revision mismatch)"
-			FAILED_REPOSITORIES["$key"]=1
-			continue
-		fi
+		REPOSITORY_RESOLVED["$key"]=$actual_revision
+		info "Resolved $key to $actual_revision"
 		REPOSITORY_CHECKOUTS["$key"]=$checkout
 	done
 }
