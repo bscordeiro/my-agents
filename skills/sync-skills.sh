@@ -56,7 +56,6 @@ SOURCES=(
 	"domain-modeling|mattpocock|skills/engineering/domain-modeling"
 	"improve-codebase-architecture|mattpocock|skills/engineering/improve-codebase-architecture"
 	"karpathy-guidelines|multica-karpathy|skills/karpathy-guidelines"
-	"brainstorming|obra-superpowers|skills/brainstorming"
 	"verification-before-completion|obra-superpowers|skills/verification-before-completion"
 	"systematic-debugging|obra-superpowers|skills/systematic-debugging"
 	"test-driven-development|obra-superpowers|skills/test-driven-development"
